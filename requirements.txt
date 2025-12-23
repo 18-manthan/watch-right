@@ -8,4 +8,4 @@ psycopg2-binary
 pydantic-settings
 opencv-python-headless
 requests
-mediapipe
+mediapipe==0.10.11
