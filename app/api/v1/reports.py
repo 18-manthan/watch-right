@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-
+from app.services.final_report_builder import build_final_report
+from app.services.risk_engine import calculate_risk_for_session
 from app.core.database import get_db
 from app.services.risk_engine import calculate_risk_for_session
 from app.models.risk_score import RiskScore
@@ -37,3 +38,13 @@ async def get_latest_risk(
         "risk_level": latest.level,
         "updated_at": latest.created_at.isoformat(),
     }
+
+
+
+@router.get("/reports/{session_id}/final")
+async def get_final_report(
+    session_id: str,
+    db: Session = Depends(get_db)
+):
+    raw_report = calculate_risk_for_session(db, session_id)
+    return build_final_report(raw_report)

@@ -6,3 +6,6 @@ python-dotenv
 alembic
 psycopg2-binary
 pydantic-settings
+opencv-python-headless
+requests
+mediapipe

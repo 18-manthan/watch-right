@@ -25,6 +25,11 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+```bash for frontend in frontend directory 
+python3 -m http.server 5500
+
+use url :  `http://localhost:5500/`
+```
 Open the interactive API docs at: `http://localhost:8000/docs` (Swagger) or `http://localhost:8000/redoc`.
 
 ## Migrations
