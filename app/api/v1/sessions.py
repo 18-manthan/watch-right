@@ -7,6 +7,7 @@ from app.services.session_service import (
     start_session,
     end_session,
 )
+import base64, os
 
 router = APIRouter()
 
@@ -51,3 +52,25 @@ async def end_interview_session(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/sessions/{session_id}/auth-snapshot")
+def save_auth_snapshot(session_id: str, payload: dict):
+    image_base64 = payload["image_base64"]
+
+    # Remove base64 header
+    image_data = image_base64.split(",")[1]
+    image_bytes = base64.b64decode(image_data)
+
+    dir_path = "storage/auth_snapshots"
+    os.makedirs(dir_path, exist_ok=True)
+
+    path = f"{dir_path}/{session_id}.jpg"
+
+    with open(path, "wb") as f:
+        f.write(image_bytes)
+
+    return {
+        "status": "saved",
+        "path": path
+    }
