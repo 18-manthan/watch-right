@@ -1,8 +1,7 @@
 from sqlalchemy.orm import Session
 from uuid import uuid4
 
-from app.models.event import Event
-from app.schemas.event import EventCreate
+from app.models.event import Event, EventCreate
 from app.services.risk_engine import calculate_risk_for_session
 from app.services.risk_persistence import save_risk_score
 from app.models.session import InterviewSession

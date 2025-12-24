@@ -1,6 +1,9 @@
 from sqlalchemy import Column, String, DateTime, Float
 from app.core.database import Base
 from datetime import datetime
+from pydantic import BaseModel
+from datetime import datetime
+from app.utils.enums import EventType, SeverityLevel
 
 
 class Event(Base):
@@ -15,3 +18,22 @@ class Event(Base):
 
     timestamp = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class EventCreate(BaseModel):
+    session_id: str
+    event_type: EventType
+    severity: SeverityLevel
+    confidence: float | None = None
+    timestamp: datetime
+
+class EventResponse(BaseModel):
+    id: str
+    session_id: str
+    event_type: EventType
+    severity: SeverityLevel
+    confidence: float | None
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
