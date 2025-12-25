@@ -138,11 +138,11 @@ button:hover {
 }
 
 .alert {
-  min-width: 280px;
-  max-width: 360px;
+  min-width: 380px;
+  max-width: 460px;
   padding: 14px 16px;
   border-radius: 10px;
-  font-size: 13.5px;
+  font-size: 15.5px;
   line-height: 1.4;
   display: flex;
   gap: 12px;
