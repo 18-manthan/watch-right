@@ -47,18 +47,3 @@ If a `docker-compose.yml` is provided, build and start services:
 ```bash
 docker-compose up --build
 ```
-
-## Tests
-
-Run the test suite with:
-
-```bash
-pytest -q
-```
-
-## Notes
-
-- The FastAPI application entrypoint is `app/main.py`.
-- Environment/configuration is handled via `pydantic-settings` and `.env` files.
-- If you need help wiring up Docker or Postgres connection details, tell me what you'd like configured and I can add an example `docker-compose.yml` and `.env`.
-uvicorn app.main:app --reload
