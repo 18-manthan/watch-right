@@ -1,76 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>Interview Integrity – Meeting Room</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- MediaPipe -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <!-- MediaPipe -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-
-  <!-- App Styles -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script> <!-- App Styles -->
   <link rel="stylesheet" href="./styles.css" />
-
-  <script>
-    function onStartClick() {
-      startSession();
-      document.getElementById("controls").style.display = "none";
-      document.getElementById("interviewStarted").style.display = "flex";
-    }
-  </script>
+  <script> function onStartClick() { startSession(); document.getElementById("controls").style.display = "none"; document.getElementById("interviewStarted").style.display = "flex"; } </script>
 </head>
 
 <body>
-
-<div id="alert-container"></div>
-
-<!-- Authentication Gate -->
-<div id="auth-gate" class="auth-overlay" style="display:none">
-  <div class="auth-box">
-    <h2>Candidate Verification</h2>
-    <video id="auth-video" autoplay muted playsinline></video>
-    <p id="auth-status">Initializing camera…</p>
-    <button id="auth-confirm" disabled>Verification Required</button>
-  </div>
+  <div class="top-header">
+  <img src="logo.png" alt="Company Logo" />
 </div>
-
-<!-- Header -->
-<div class="header">
-  <h1>Interview Integrity – Live Interview</h1>
-  <div class="session-info">
-    Session ID: <strong id="sessionId">-</strong>
-  </div>
-</div>
-
-<!-- Main -->
-<div class="main">
-  <div class="meeting-room">
-
-    <div class="video-wrapper">
-      <video id="video" autoplay muted playsinline></video>
-      <div class="video-label">Candidate Camera</div>
+  <div id="alert-container"></div> <!-- Authentication Gate -->
+  <div id="auth-gate" class="auth-overlay" style="display:none">
+    <div class="auth-box">
+      <h2>Candidate Verification</h2> <video id="auth-video" autoplay muted playsinline></video>
+      <p id="auth-status">Initializing camera…</p> <button id="auth-confirm" disabled>Verification Done!</button>
     </div>
-
-    <div class="status-bar">
-      <div>Status: <strong id="status">CREATED</strong></div>
-      <div class="status-badge">AI Monitoring Active</div>
+  </div> <!-- Header -->
+  <div class="header">
+    <h1>Interview Integrity – Live Interview</h1>
+    <div class="session-info"> Session ID: <strong id="sessionId">-</strong> </div>
+  </div> <!-- Main -->
+  <div class="main">
+    <div class="meeting-room">
+      <div class="video-wrapper"> <video id="video" autoplay muted playsinline></video>
+        <div class="video-label">Candidate Camera</div>
+      </div>
+      <div class="status-bar">
+        <div>Status: <strong id="status">CREATED</strong></div>
+        <div class="status-badge">AI Monitoring Active</div>
+      </div> <!-- Setup Controls (Before Interview) -->
+      <div class="controls" id="setupControls"> <button onclick="createSession()">Create Session</button> <button
+          class="primary" onclick="startSession()">Start Interview</button> </div>
+      <!-- Interview Controls (During Interview) -->
+      <div class="controls" id="interviewControls" style="display:none;"> <button id="screenBtn"
+          onclick="startScreenRecording()" disabled> Start Screen Sharing </button> <button id="endBtn"
+          onclick="endInterview()" disabled> End Interview </button> </div> <!-- Interview Started Banner -->
+      <div id="interviewStarted" class="interview-started" style="display:none;"> <span class="live-dot"></span>
+        <span>The process has started!</span>
+      </div>
+      <div id="interviewStarted" class="interview-started" style="display:none;"> <span class="live-dot"></span>
+        <span>The process has started!</span>
+      </div>
     </div>
+    <!-- Exit Interview Button -->
+<button id="exitBtn" class="exit-btn" onclick="exitInterview()">
+  Exit Interview
+</button>
 
-    <div class="controls" id="controls">
-      <button onclick="createSession()">Create Session</button>
-      <button class="primary" onclick="startSession()">Start Interview</button>
-    </div>
-
-    <div id="interviewStarted" class="interview-started" style="display:none;">
-      <span class="live-dot"></span>
-      <span>The process has started!</span>
-    </div>
-
-  </div>
-</div>
-
-<!-- Load app.js LAST -->
-<script src="./app.js"></script>
+  </div> <!-- Load app.js LAST -->
+  <script src="./app.js"></script>
 </body>
-</html>

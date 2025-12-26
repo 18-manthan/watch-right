@@ -7,8 +7,8 @@ __pycache__/
 *$py.class
 
 event_1/
-
-storage/auth_snapshots/
+virtual/auth_snapshots/
+virtual/screen_recordings/
 
 
 
