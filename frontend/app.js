@@ -22,14 +22,14 @@ let screenChunks = [];
 // Thresholds
 const FACE_MISSING_FRAME_THRESHOLD = 40;
 const AUTH_REQUIRED_FRAMES = 55;
-const FACE_MISMATCH_THRESHOLD = 0.045;
+const FACE_MISMATCH_THRESHOLD = 0.065;
 const FACE_MISMATCH_FRAME_COUNT = 10;
 
 
 // Head Movement State
 let headTurnFrames = 0;
 const HEAD_TURN_THRESHOLD = 0.35;
-const HEAD_TURN_FRAME_COUNT = 5;
+const HEAD_TURN_FRAME_COUNT = 4;
 
 
 // Eye Tracking State
@@ -39,8 +39,8 @@ let eyeClosedFrames = 0;
 let baselineEyeOffset = null;
 let eyeDeviationFrames = 0;
 
-const EYE_RELATIVE_THRESHOLD = 0.04;   // VERY SENSITIVE
-const EYE_RELATIVE_FRAME_COUNT = 8;
+const EYE_RELATIVE_THRESHOLD = 0.03;   // VERY SENSITIVE
+const EYE_RELATIVE_FRAME_COUNT = 6;
 
 
 // Eye landmark indices (MediaPipe)
@@ -407,22 +407,20 @@ function enableSystemMonitoring() {
 // Events + Alerts
 // ==============================
 const EVENT_MESSAGES = {
-  FACE_MISSING: "Face not detected. Please stay in front of the camera.",
-  MULTIPLE_FACES: "Multiple faces detected. Only one person should be visible.",
-  FACE_MISMATCH: "Face mismatch detected.",
-  TAB_SWITCH: "Tab switching detected.",
-  WINDOW_BLUR: "Interview window lost focus.",
+  FACE_MISSING: "Face not detected. Please stay visible on camera.",
+  MULTIPLE_FACES: "Multiple faces detected. Only one participant is allowed.",
+  FACE_MISMATCH: "Face verification failed.",
+  TAB_SWITCH: "Tab switch detected. Stay on the interview screen.",
+  WINDOW_BLUR: "Interview window out of focus.",
   SCREEN_RECORDING_STARTED: "Screen recording started.",
   SCREEN_SHARE_STOPPED: "Screen sharing stopped.",
-  SCREEN_RECORDING_SAVED: "Recording saved.",
+  SCREEN_RECORDING_SAVED: "Recording saved successfully.",
   SCREEN_RECORDING_FAILED: "Recording failed.",
-  SCREEN_RECORDING_UPLOAD_FAILED: "Upload failed.",
-  EYE_LOOKING_AWAY: "Please focus on the screen.",
+  SCREEN_RECORDING_UPLOAD_FAILED: "Recording upload failed.",
+  EYE_LOOKING_AWAY: "Please keep your eyes on the screen.",
   EYES_CLOSED: "Eyes closed for too long.",
-  HEAD_TURNED :"PLEASE FOCUS ON THE SCREEN CENTER!!!",
-  EYE_MOVEMENT : "Eye movement detected. Please focus on the screen."
-
-
+  HEAD_TURNED: "Face not centered. Please face the screen.",
+  EYE_MOVEMENT: "Excessive eye movement detected."
 };
 
 const EVENT_SEVERITY = {
