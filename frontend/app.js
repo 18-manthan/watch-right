@@ -20,14 +20,38 @@ let micStream = null;
 let screenChunks = [];
 
 // Thresholds
-const FACE_MISSING_FRAME_THRESHOLD = 20;
-const AUTH_REQUIRED_FRAMES = 30;
-const FACE_MISMATCH_THRESHOLD = 0.035;
-const FACE_MISMATCH_FRAME_COUNT = 3.4;
+const FACE_MISSING_FRAME_THRESHOLD = 40;
+const AUTH_REQUIRED_FRAMES = 55;
+const FACE_MISMATCH_THRESHOLD = 0.045;
+const FACE_MISMATCH_FRAME_COUNT = 10;
 
-// ==============================
+
+// Head Movement State
+let headTurnFrames = 0;
+const HEAD_TURN_THRESHOLD = 0.35;
+const HEAD_TURN_FRAME_COUNT = 5;
+
+
+// Eye Tracking State
+let eyeOffCenterFrames = 0;
+let eyeClosedFrames = 0;
+
+let baselineEyeOffset = null;
+let eyeDeviationFrames = 0;
+
+const EYE_RELATIVE_THRESHOLD = 0.04;   // VERY SENSITIVE
+const EYE_RELATIVE_FRAME_COUNT = 8;
+
+
+// Eye landmark indices (MediaPipe)
+const LEFT_EYE = [33, 133];
+const RIGHT_EYE = [362, 263];
+const LEFT_IRIS = [468];
+const RIGHT_IRIS = [473];
+
+
+
 // Session APIs
-// ==============================
 async function createSession() {
   const res = await fetch(`${API_BASE}/sessions`, { method: "POST" });
   const data = await res.json();
@@ -88,6 +112,7 @@ function startFaceMesh(video) {
 
   faceMesh.setOptions({
     maxNumFaces: 2,
+    refineLandmarks: true,   // REQUIRED for eyes
     minDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5,
   });
@@ -95,6 +120,8 @@ function startFaceMesh(video) {
   interviewFaceMeshActive = true;
 
   faceMesh.onResults(results => {
+    console.log("Interview FaceMesh frame");
+
     if (!interviewActive) return;
 
     const faces = results.multiFaceLandmarks || [];
@@ -133,7 +160,18 @@ function startFaceMesh(video) {
         faceMismatchFrames = 0;
       }
     }
+
+    // ---------- EYE MOVEMENT ----------
+    try {
+      processEyeMovement(faces[0]); 
+      processHeadMovement(faces[0]);
+    } catch (e) {
+      console.error("Eye detection error:", e);
+    }
+    //  SANITY TEST — ADD ONLY TEMPORARILY
+    // sendEvent("EYE_LOOKING_AWAY", "LOW");
   });
+
 
   const camera = new Camera(video, {
     onFrame: async () => {
@@ -181,13 +219,17 @@ function startAuthGate() {
 
     faceMesh.setOptions({
       maxNumFaces: 2,
+      refineLandmarks: true,
       minDetectionConfidence: 0.5,
       minTrackingConfidence: 0.5,
     });
 
+
     authFaceMeshActive = true;
 
     faceMesh.onResults(results => {
+      console.log("Auth FaceMesh frame");
+
       if (!authFaceMeshActive) return;
 
       const faces = results.multiFaceLandmarks || [];
@@ -209,6 +251,7 @@ function startAuthGate() {
           faces.length === 0 ? "No face detected" : "Multiple faces detected";
       }
     });
+
 
     const camera = new Camera(video, {
       onFrame: async () => {
@@ -343,7 +386,7 @@ function faceDifferenceScore(a, b) {
     const dx = a[i].x - b[i].x;
     const dy = a[i].y - b[i].y;
     const dz = a[i].z - b[i].z;
-    sum += Math.sqrt(dx*dx + dy*dy + dz*dz);
+    sum += Math.sqrt(dx * dx + dy * dy + dz * dz);
   }
   return sum / a.length;
 }
@@ -366,14 +409,20 @@ function enableSystemMonitoring() {
 const EVENT_MESSAGES = {
   FACE_MISSING: "Face not detected. Please stay in front of the camera.",
   MULTIPLE_FACES: "Multiple faces detected. Only one person should be visible.",
-  FACE_MISMATCH: "PLEASE FOCUS ON THE SCREEN CENTER!!!",
+  FACE_MISMATCH: "Face mismatch detected.",
   TAB_SWITCH: "Tab switching detected.",
   WINDOW_BLUR: "Interview window lost focus.",
   SCREEN_RECORDING_STARTED: "Screen recording started.",
   SCREEN_SHARE_STOPPED: "Screen sharing stopped.",
   SCREEN_RECORDING_SAVED: "Recording saved.",
   SCREEN_RECORDING_FAILED: "Recording failed.",
-  SCREEN_RECORDING_UPLOAD_FAILED: "Upload failed."
+  SCREEN_RECORDING_UPLOAD_FAILED: "Upload failed.",
+  EYE_LOOKING_AWAY: "Please focus on the screen.",
+  EYES_CLOSED: "Eyes closed for too long.",
+  HEAD_TURNED :"PLEASE FOCUS ON THE SCREEN CENTER!!!",
+  EYE_MOVEMENT : "Eye movement detected. Please focus on the screen."
+
+
 };
 
 const EVENT_SEVERITY = {
@@ -386,7 +435,11 @@ const EVENT_SEVERITY = {
   SCREEN_RECORDING_SAVED: "low",
   SCREEN_SHARE_STOPPED: "high",
   SCREEN_RECORDING_FAILED: "high",
-  SCREEN_RECORDING_UPLOAD_FAILED: "high"
+  SCREEN_RECORDING_UPLOAD_FAILED: "high",
+  EYE_LOOKING_AWAY: "medium",
+  EYES_CLOSED: "medium",
+  EYE_MOVEMENT: "medium",
+  HEAD_TURNED: "medium",
 };
 
 async function sendEvent(eventType, severity) {
@@ -415,6 +468,98 @@ function showAlert(eventType) {
   setTimeout(() => a.remove(), 4000);
 }
 
+function getEyeCenter(landmarks, eye) {
+  const p1 = landmarks[eye[0]];
+  const p2 = landmarks[eye[1]];
+  return {
+    x: (p1.x + p2.x) / 2,
+    y: (p1.y + p2.y) / 2,
+  };
+}
+
+function getDistance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function processEyeMovement(landmarks) {
+  if (!landmarks || !landmarks[468] || !landmarks[473]) return;
+
+  // Eye corners
+  const l1 = landmarks[33];
+  const l2 = landmarks[133];
+  const r1 = landmarks[362];
+  const r2 = landmarks[263];
+
+  // Iris
+  const li = landmarks[468];
+  const ri = landmarks[473];
+
+  const leftWidth = Math.abs(l2.x - l1.x);
+  const rightWidth = Math.abs(r2.x - r1.x);
+  if (leftWidth === 0 || rightWidth === 0) return;
+
+  // Normalized iris offset
+  const leftOffset =
+    Math.abs(li.x - (l1.x + l2.x) / 2) / leftWidth;
+  const rightOffset =
+    Math.abs(ri.x - (r1.x + r2.x) / 2) / rightWidth;
+
+  const avgOffset = (leftOffset + rightOffset) / 2;
+
+  // ---------- BASELINE CAPTURE ----------
+  if (baselineEyeOffset === null) {
+    baselineEyeOffset = avgOffset;
+    return;
+  }
+
+  const deviation = Math.abs(avgOffset - baselineEyeOffset);
+
+  console.log(
+    "EYE BASE:", baselineEyeOffset.toFixed(3),
+    "CUR:", avgOffset.toFixed(3),
+    "DEV:", deviation.toFixed(3)
+  );
+
+  // ---------- RELATIVE EYE MOVEMENT ALERT ----------
+  if (deviation > EYE_RELATIVE_THRESHOLD) {
+    eyeDeviationFrames++;
+    if (eyeDeviationFrames >= EYE_RELATIVE_FRAME_COUNT) {
+      sendEvent("EYE_MOVEMENT", "MEDIUM");
+      eyeDeviationFrames = 0;
+    }
+  } else {
+    eyeDeviationFrames = 0;
+  }
+}
+
+
+
+function processHeadMovement(landmarks) {
+  const nose = landmarks[1];
+  const leftCheek = landmarks[234];
+  const rightCheek = landmarks[454];
+
+  const faceWidth = Math.abs(rightCheek.x - leftCheek.x);
+  if (faceWidth === 0) return;
+
+  const noseOffset =
+    Math.abs(nose.x - (leftCheek.x + rightCheek.x) / 2) / faceWidth;
+
+  console.log("HEAD OFFSET:", noseOffset.toFixed(2));
+
+  if (noseOffset > HEAD_TURN_THRESHOLD) {
+    headTurnFrames++;
+    if (headTurnFrames >= HEAD_TURN_FRAME_COUNT) {
+      sendEvent("HEAD_TURNED", "MEDIUM");
+      headTurnFrames = 0;
+    }
+  } else {
+    headTurnFrames = 0;
+  }
+}
+
+
+
 async function exitInterview() {
   const confirmExit = confirm(
     "Are you sure you want to exit the interview?\nYour session will be ended."
@@ -442,6 +587,6 @@ async function exitInterview() {
   }
 
   setTimeout(() => {
-   window.location.href = "end.html"; 
+    window.location.href = "end.html";
   }, 500);
 }
