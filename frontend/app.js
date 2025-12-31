@@ -1,4 +1,7 @@
-console.log("app.js LOADED");
+console.log("app.js LOADED------------------------------------>");
+let fullscreenExitCount = 0;
+let fullscreenEnforcementEnabled = false;
+const MAX_FULLSCREEN_EXITS = 5;
 
 let sessionId = null;
 let interviewActive = false;
@@ -48,11 +51,32 @@ const LEFT_EYE = [33, 133];
 const RIGHT_EYE = [362, 263];
 const LEFT_IRIS = [468];
 const RIGHT_IRIS = [473];
+function enterFullscreen() {
+  const elem = document.documentElement;
+
+  if (!document.fullscreenElement) {
+    elem.requestFullscreen().then(() => {
+      setTimeout(() => logFullscreenStatus("after enterFullscreen"), 200);
+    }).catch(err => {
+      console.error("Fullscreen failed:", err);
+    });
+  }
+}
+
+
+function exitFullscreen() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  }
+}
 
 
 
 // Session APIs
 async function createSession() {
+
+  enterFullscreen();
+
   const res = await fetch(`${API_BASE}/sessions`, { method: "POST" });
   const data = await res.json();
 
@@ -68,6 +92,14 @@ async function startSession() {
     alert("Create session first");
     return;
   }
+
+  if (!document.fullscreenElement) {
+    alert("Interview must be started in fullscreen mode.");
+    return;
+  }
+
+  fullscreenExitCount = 0;
+  fullscreenEnforcementEnabled = true;
 
   const res = await fetch(`${API_BASE}/sessions/${sessionId}/start`, {
     method: "POST",
@@ -85,10 +117,11 @@ async function startSession() {
   enableSystemMonitoring();
   startCamera();
 
-  // Enable interview buttons
   document.getElementById("screenBtn").disabled = false;
   document.getElementById("endBtn").disabled = false;
 }
+
+
 
 // ==============================
 // Camera + FaceMesh (Interview)
@@ -120,7 +153,6 @@ function startFaceMesh(video) {
   interviewFaceMeshActive = true;
 
   faceMesh.onResults(results => {
-    console.log("Interview FaceMesh frame");
 
     if (!interviewActive) return;
 
@@ -163,7 +195,7 @@ function startFaceMesh(video) {
 
     // ---------- EYE MOVEMENT ----------
     try {
-      processEyeMovement(faces[0]); 
+      processEyeMovement(faces[0]);
       processHeadMovement(faces[0]);
     } catch (e) {
       console.error("Eye detection error:", e);
@@ -364,9 +396,14 @@ async function handleScreenRecordingStop() {
 function endInterview() {
   interviewActive = false;
   interviewFaceMeshActive = false;
+
+  fullscreenEnforcementEnabled = false;
+  fullscreenExitCount = 0;
+
   stopScreenRecording();
   sendEvent("INTERVIEW_ENDED", "LOW");
 }
+
 
 // ==============================
 // Utils
@@ -402,6 +439,52 @@ function enableSystemMonitoring() {
     sendEvent("WINDOW_BLUR", "LOW");
   });
 }
+document.addEventListener("fullscreenchange", () => {
+  if (!fullscreenEnforcementEnabled || !interviewActive) return;
+
+  // User exited fullscreen (ESC / browser UI)
+  if (!document.fullscreenElement) {
+    fullscreenExitCount++;
+
+    console.warn(
+      `Fullscreen exit detected (${fullscreenExitCount}/${MAX_FULLSCREEN_EXITS})`
+    );
+
+    if (fullscreenExitCount <= MAX_FULLSCREEN_EXITS) {
+      sendEvent("FULLSCREEN_EXIT_WARNING", "MEDIUM");
+
+      showAlertMessage(
+        `Make sure you do not click it again` +
+        `Please remain in fullscreen mode.`,
+        "medium"
+      );
+
+      // ✅ IMPORTANT: allow exit to be visible
+      fullscreenEnforcementEnabled = false;
+
+      setTimeout(() => {
+        enterFullscreen();
+        fullscreenEnforcementEnabled = true;
+      }, 1200);
+
+    } else {
+      sendEvent("FULLSCREEN_EXIT_LIMIT_EXCEEDED", "HIGH");
+
+      showAlertMessage(
+        "Fullscreen exited multiple times. Interview terminated.",
+        "high"
+      );
+
+      fullscreenEnforcementEnabled = false;
+      endInterview();
+      exitFullscreen();
+    }
+  }
+});
+
+
+
+
 
 // ==============================
 // Events + Alerts
@@ -411,7 +494,7 @@ const EVENT_MESSAGES = {
   MULTIPLE_FACES: "Multiple faces detected. Only one participant is allowed.",
   FACE_MISMATCH: "Face verification failed.",
   TAB_SWITCH: "Tab switch detected. Stay on the interview screen.",
-  WINDOW_BLUR: "Interview window out of focus.",
+  WINDOW_BLUR: "Interview window changed",
   SCREEN_RECORDING_STARTED: "Screen recording started.",
   SCREEN_SHARE_STOPPED: "Screen sharing stopped.",
   SCREEN_RECORDING_SAVED: "Recording saved successfully.",
@@ -420,8 +503,13 @@ const EVENT_MESSAGES = {
   EYE_LOOKING_AWAY: "Please keep your eyes on the screen.",
   EYES_CLOSED: "Eyes closed for too long.",
   HEAD_TURNED: "Face not centered. Please face the screen.",
-  EYE_MOVEMENT: "Excessive eye movement detected."
+  EYE_MOVEMENT: "Excessive eye movement detected.",
+  FULLSCREEN_EXIT_ATTEMPT: "Fullscreen exit detected. Interview must remain in fullscreen mode.",
+  FULLSCREEN_EXIT_WARNING: "Fullscreen exited. Please remain in fullscreen mode.",
+  FULLSCREEN_EXIT_LIMIT_EXCEEDED: "Fullscreen exited too many times. Interview terminated."
 };
+
+
 
 const EVENT_SEVERITY = {
   FACE_MISSING: "high",
@@ -438,6 +526,11 @@ const EVENT_SEVERITY = {
   EYES_CLOSED: "medium",
   EYE_MOVEMENT: "medium",
   HEAD_TURNED: "medium",
+  FULLSCREEN_EXIT_ATTEMPT: "high",
+  FULLSCREEN_EXIT_WARNING: "medium",
+  FULLSCREEN_EXIT_LIMIT_EXCEEDED: "high"
+
+
 };
 
 async function sendEvent(eventType, severity) {
@@ -512,11 +605,11 @@ function processEyeMovement(landmarks) {
 
   const deviation = Math.abs(avgOffset - baselineEyeOffset);
 
-  console.log(
-    "EYE BASE:", baselineEyeOffset.toFixed(3),
-    "CUR:", avgOffset.toFixed(3),
-    "DEV:", deviation.toFixed(3)
-  );
+  // console.log(
+  //   "EYE BASE:", baselineEyeOffset.toFixed(3),
+  //   "CUR:", avgOffset.toFixed(3),
+  //   "DEV:", deviation.toFixed(3)
+  // );
 
   // ---------- RELATIVE EYE MOVEMENT ALERT ----------
   if (deviation > EYE_RELATIVE_THRESHOLD) {
@@ -543,7 +636,7 @@ function processHeadMovement(landmarks) {
   const noseOffset =
     Math.abs(nose.x - (leftCheek.x + rightCheek.x) / 2) / faceWidth;
 
-  console.log("HEAD OFFSET:", noseOffset.toFixed(2));
+  // console.log("HEAD OFFSET:", noseOffset.toFixed(2));
 
   if (noseOffset > HEAD_TURN_THRESHOLD) {
     headTurnFrames++;
@@ -565,17 +658,14 @@ async function exitInterview() {
 
   if (!confirmExit) return;
 
-  // Stop monitoring
   interviewActive = false;
   interviewFaceMeshActive = false;
 
-  // Stop screen recording safely
   stopScreenRecording();
-
-  // Fire event
   sendEvent("INTERVIEW_EXITED", "HIGH");
 
-  // End session on backend
+  exitFullscreen();
+
   try {
     await fetch(`${API_BASE}/sessions/${sessionId}/end`, {
       method: "POST",
@@ -587,4 +677,17 @@ async function exitInterview() {
   setTimeout(() => {
     window.location.href = "end.html";
   }, 500);
+}
+
+
+function showAlertMessage(message, severity = "medium") {
+  const c = document.getElementById("alert-container");
+  if (!c) return;
+
+  const a = document.createElement("div");
+  a.className = `alert ${severity}`;
+  a.innerText = message;
+
+  c.appendChild(a);
+  setTimeout(() => a.remove(), 5000);
 }
