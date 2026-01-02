@@ -39,11 +39,3 @@ Apply database migrations with Alembic:
 ```bash
 alembic upgrade head
 ```
-
-## Run with Docker Compose
-
-If a `docker-compose.yml` is provided, build and start services:
-
-```bash
-docker-compose up --build
-```
